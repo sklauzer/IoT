@@ -1,0 +1,7 @@
+# Logfile LoRaWAN TTN/TTS V3 logger version hka-log V 1.1
+date_time;device_id;tmp;hum;CO2;VOC;vis;IR;WIFI;BLE;rssi;channel_rssi;snr;gateway;channel_index;spreading_factor;bandwidth;f_cnt
+2023-03-07 12:45:13; hka-aqm-n004;  20.38;  20.02;   425;   589;    24;     8;     3;     4;  -139;  -139; -20.2; drag-outd-01; 6; 12; 125000; 3330
+2023-03-07 14:22:53; hka-aqm-n004;  20.27;  20.02;   436;   615;    30;     9;     0;     0;  -137;  -137; -18.2; drag-outd-01; 4; 12; 125000; 3335
+2023-03-07 14:43:30; hka-aqm-n004;  20.23;  20.16;   418;   604;    39;    16;     3;     4;  -140;  -140; -20.8; drag-outd-01; 6; 12; 125000; 3336
+2023-03-07 17:10:39; hka-aqm-n004;  20.11;  21.89;   420;   793;    10;     2;     3;     4;  -137;  -137; -17.0; drag-outd-01; 0; 12; 125000; 3344
+2023-03-07 18:27:39; hka-aqm-n004;  20.09;  21.48;   427;   787;     8;     2;     0;     0;  -140;  -140; -19.5; drag-outd-01; 7; 12; 125000; 3348
