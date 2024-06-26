@@ -34,7 +34,7 @@ st.write(
     This application demonstrates how the model can be used to make 
     a prediction. Six files of a room (consecutive days) are uploaded as input."""
     )
-# html horizontal line
+
 st.markdown("<hr/>", unsafe_allow_html=True)
 
 # Get all models from the NeuralNetworks/models directory
@@ -87,6 +87,9 @@ if model_loaded:
             st.error("The data contains more than one room. Please make sure to upload only data from one room.")
             st.stop()
 
+        room = df['room'].unique()[0]
+
+
         # Feature engineering and encoding
         df = utils.nn.feature_engineering(df)
         df = utils.nn.encode(df, encoder)
@@ -109,6 +112,12 @@ if model_loaded:
         y_pred_scaled = utils.nn.predict(model, X)
         y_pred = utils.nn.rescale(y_pred_scaled, y_scaler)
 
-        # Round the result and format to 2 decimal places
+        st.markdown("<hr/>", unsafe_allow_html=True)
+
         y_pred = round(y_pred[0], 2)
-        st.metric(f"Predicted Temperature on {next_date}", f"{y_pred:.2f} °C")
+        st.header("Prediction")
+        # 3 columns
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Room", room)
+        col2.metric("Date", next_date)
+        col3.metric(f"Predicted Temperature", f"{y_pred:.2f} °C")
