@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import altair as alt
+import matplotlib.pyplot as plt 
 
 st.set_page_config(
     page_title="Gebäude N Dashboard",
@@ -9,6 +10,8 @@ st.set_page_config(
 )
 
 data = pd.read_csv("data/processed/data_building_n.csv")
+
+data['date'] = pd.to_datetime(data['date'])
 
 # --------------------------Sidebar Filter ------------------------
 
@@ -63,28 +66,6 @@ selected_inside_metrics = st.sidebar.multiselect('Werte (innerhalb)', inside_met
 selected_outside_metrics = st.sidebar.multiselect('Werte (außerhalb)', outside_metrics, [])
 
 selected_metrics = selected_inside_metrics + selected_outside_metrics
-
-def combine_metrics(data, metric1, metric2, by='hour'):
-    combined_data = data.groupby(by)[[metric1, metric2]].mean().reset_index()
-    base = alt.Chart(combined_data).encode(x=f'{by}:N')
-
-    line1 = base.mark_line(color='blue').encode(
-        y=alt.Y(f'mean({metric1}):Q', axis=alt.Axis(title=f'{metric1}'))
-    )
-
-    line2 = base.mark_line(color='red').encode(
-        y=alt.Y(f'mean({metric2}):Q', axis=alt.Axis(title=f'{metric2}', orient='right'))
-    )
-
-    chart = alt.layer(line1, line2).resolve_scale(
-        y='independent'
-    ).properties(
-        width=600,
-        height=400,
-        title=f'Vergleich {metric1} und {metric2} nach {by}'
-    )
-
-    return chart
 
 if len(selected_metrics) > 0:
     st.subheader('Vergleich der Metriken')
@@ -142,9 +123,67 @@ else:
 # Korrelationskoeffizienten zwischen Metriken berechnen
 if len(selected_metrics) > 1:
     st.subheader('Korrelationskoeffizient zwischen zwei Metriken')
-    metric1 = st.selectbox('Erste Metrik auswählen', selected_metrics)
-    metric2 = st.selectbox('Zweite Metrik auswählen', selected_metrics)
+    metric1 = st.selectbox('Erste Metrik auswählen', selected_metrics, key='corr_metric1')
+    metric2 = st.selectbox('Zweite Metrik auswählen', selected_metrics, key='corr_metric2')
 
     correlation_coefficient = data[metric1].corr(data[metric2])
     st.write(f"Korrelationskoeffizient zwischen {metric1} und {metric2}: {correlation_coefficient}")
 
+if len(selected_metrics) > 1:
+    st.subheader('Direkter Vergleich 2 Metriken')
+    metrica = st.selectbox('Erste Metrik auswählen', selected_metrics, key='compare_metric1')
+    metricb = st.selectbox('Zweite Metrik auswählen', selected_metrics, key='compare_metric2')
+
+    # Auswahloption für den y-Wert hinzufügen
+    comparison_type = st.radio("Vergleichstyp auswählen", ("Tagesverlauf", "Gesamtverlauf"), key='comparison_type')
+
+    def combine_metrics_by_hour(data, metrica, metricb):
+        combined_data = data.groupby('hour')[[metrica, metricb]].mean().reset_index()
+        base = alt.Chart(combined_data).encode(x='hour:N')
+
+        line1 = base.mark_line(color='blue').encode(
+            y=alt.Y(f'{metrica}:Q', axis=alt.Axis(title=f'{metrica}'))
+        )
+
+        line2 = base.mark_line(color='red').encode(
+            y=alt.Y(f'{metricb}:Q', axis=alt.Axis(title=f'{metricb}', orient='right'))
+        )
+
+        chart = alt.layer(line1, line2).resolve_scale(
+            y='independent'
+        ).properties(
+            width=600,
+            height=400,
+            title=f'Vergleich {metrica} und {metricb} nach Tagesverlauf'
+        )
+
+        return chart
+
+    def combine_metrics_by_date(data, metrica, metricb):
+        combined_data = data[['date', metrica, metricb]].set_index('date').resample('D').mean().reset_index()
+        base = alt.Chart(combined_data).encode(x='date:T')
+
+        line1 = base.mark_line(color='blue').encode(
+            y=alt.Y(f'{metrica}:Q', axis=alt.Axis(title=f'{metrica}'))
+        )
+
+        line2 = base.mark_line(color='red').encode(
+            y=alt.Y(f'{metricb}:Q', axis=alt.Axis(title=f'{metricb}', orient='right'))
+        )
+
+        chart = alt.layer(line1, line2).resolve_scale(
+            y='independent'
+        ).properties(
+            width=600,
+            height=400,
+            title=f'Vergleich {metrica} und {metricb} nach Gesamtverlauf'
+        )
+
+        return chart
+
+    if comparison_type == "Tagesverlauf":
+        chart_hour = combine_metrics_by_hour(data, metrica, metricb)
+        st.altair_chart(chart_hour, use_container_width=True)
+    else:
+        chart_date = combine_metrics_by_date(data, metrica, metricb)
+        st.altair_chart(chart_date, use_container_width=True)
