@@ -64,41 +64,61 @@ selected_outside_metrics = st.sidebar.multiselect('Werte (außerhalb)', outside_
 
 selected_metrics = selected_inside_metrics + selected_outside_metrics
 
+def combine_metrics(data, metric1, metric2, by='hour'):
+    combined_data = data.groupby(by)[[metric1, metric2]].mean().reset_index()
+    base = alt.Chart(combined_data).encode(x=f'{by}:N')
+
+    line1 = base.mark_line(color='blue').encode(
+        y=alt.Y(f'mean({metric1}):Q', axis=alt.Axis(title=f'{metric1}'))
+    )
+
+    line2 = base.mark_line(color='red').encode(
+        y=alt.Y(f'mean({metric2}):Q', axis=alt.Axis(title=f'{metric2}', orient='right'))
+    )
+
+    chart = alt.layer(line1, line2).resolve_scale(
+        y='independent'
+    ).properties(
+        width=600,
+        height=400,
+        title=f'Vergleich {metric1} und {metric2} nach {by}'
+    )
+
+    return chart
+
 if len(selected_metrics) > 0:
     st.subheader('Vergleich der Metriken')
 
+    # Tagesverlauf 
     for metric in selected_metrics:
+        st.subheader(f'Durchschnitt {metric}')
 
-        # Tagesverlauf
         avg_metrics_per_hour = data.groupby('hour')[metric].mean().reset_index()
-
         line_chart_hourly = alt.Chart(avg_metrics_per_hour).mark_line().encode(
             x='hour:N',
-            y=alt.Y(f'mean({metric}):Q', title=f'Durchschnittlicher {metric}'),
-            tooltip=['hour:N', alt.Tooltip(f'mean({metric}):Q', title=f'Durchschnittlicher {metric}')]
+            y=alt.Y(f'mean({metric}):Q', title=f'Durchschnitt {metric}'),
+            tooltip=['hour:N', alt.Tooltip(f'mean({metric}):Q', title=f'Durchschnitt {metric}')]
         ).properties(
             title=f'Durchschnitt {metric} im Tagesverlauf',
-            width=600,
-            height=400
+            width=400,
+            height=300
         )
 
-        st.altair_chart(line_chart_hourly)
-
-    for metric in selected_metrics:
         # Gesamtverlauf
         avg_metrics_total = data.groupby('date')[metric].mean().reset_index()
-
         line_chart_total = alt.Chart(avg_metrics_total).mark_line().encode(
             x='date:T',
-            y=alt.Y(f'mean({metric}):Q', title=f'Durchschnittlicher {metric}'),
-            tooltip=['date:T', alt.Tooltip(f'mean({metric}):Q', title=f'Durchschnittlicher {metric}')]
+            y=alt.Y(f'mean({metric}):Q', title=f'Durchschnitt {metric}'),
+            tooltip=['date:T', alt.Tooltip(f'mean({metric}):Q', title=f'Durchschnitt {metric}')]
         ).properties(
             title=f'Durchschnitt {metric} über den Gesamtzeitraum',
             width=800,
             height=400
         )
 
-        st.altair_chart(line_chart_total)
+        col1, col2 = st.columns(2)
+        col1.altair_chart(line_chart_hourly)
+        col2.altair_chart(line_chart_total)
 
 show_scatterplots = st.checkbox('Scatterplots anzeigen für Korrelationsanalyse')
 
@@ -127,3 +147,4 @@ if len(selected_metrics) > 1:
 
     correlation_coefficient = data[metric1].corr(data[metric2])
     st.write(f"Korrelationskoeffizient zwischen {metric1} und {metric2}: {correlation_coefficient}")
+
