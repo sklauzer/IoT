@@ -1,9 +1,19 @@
-import pandas as pd
 import os
+import subprocess
+
+# Set the working directory to the root of the Git repository
+current_dir = os.getcwd()
+git_root = subprocess.check_output(["git", "rev-parse", "--show-toplevel"], cwd=current_dir)
+git_root = git_root.decode("utf-8").strip()
+os.chdir(git_root)
+new_dir = os.getcwd()
+
+import pandas as pd
 from typing import List, Dict, Tuple
 import dirs
 import tqdm
 from colorama import Fore, Style
+import weather
 
 def load_data(data_dir:str) -> pd.DataFrame:
     """
@@ -56,10 +66,24 @@ def preprocess_data(df:pd.DataFrame) -> pd.DataFrame:
 
     df['snr'] = df['snr'].str.strip().astype(float)
 
-    # ------------------------------------------------
-    # Add additional preprocessing steps here
-    # ...
-    # ------------------------------------------------
+    #----- Data Cleaning ----------------------------
+    # Temperature
+    df = df[(df["tmp"] > -20) & (df["tmp"] < 50)]
+
+    # Humidity
+    df = df[(df["hum"] > 0) & (df["hum"] < 100)]
+
+    # CO2
+    df = df[(df["CO2"] > 0) & (df["CO2"] < 5000)]
+
+    # VOC
+    df = df[(df["VOC"] > 0) & (df["VOC"] < 1000)]
+
+    # Remove duplicates
+    df = df.drop_duplicates()
+
+    # Remove rows with NaN values
+    df = df.dropna()
 
     print("✓ Done")
     print("\n")
@@ -91,6 +115,65 @@ def add_features(df: pd.DataFrame) -> pd.DataFrame:
 
     df['floor'] = df['device_id'].apply(extract_floor)
 
+    #----- Add date -----------------------------------
+    df["date"] = df["date_time"].dt.date
+
+    #----- Add the month ------------------------------
+    df["month"] = df["date_time"].dt.month
+
+    #----- Add the time of day ------------------------
+    df["hour"] = df["date_time"].dt.hour
+
+    #----- Add the day of the week --------------------
+    df["day_of_week"] = df["date_time"].dt.dayofweek
+
+    #----- Add weekend or not -------------------------
+    df['is_weekend'] = df['day_of_week'] >= 5
+
+    #----- Add the season based on the month (Germany) -
+    df["season"] = df["month"].map({
+        1: "winter",
+        2: "winter",
+        3: "spring",
+        4: "spring",
+        5: "spring",
+        6: "summer",
+        7: "summer",
+        8: "summer",
+        9: "autumn",
+        10: "autumn",
+        11: "autumn",
+        12: "winter"
+    })
+
+    #----- Weather data -------------------------------
+    # Coordinates of Karlsruhe
+    latitude = 49.014920
+    longitude = 8.390050
+
+    start_date = df["date_time"].min().strftime("%Y-%m-%d")
+    end_date = df["date_time"].max().strftime("%Y-%m-%d")
+
+    df_weather = weather.get_weather_with_api(latitude=latitude, longitude=longitude, start_date=start_date, end_date=end_date)
+    df = pd.merge(df, df_weather, on=["date", "hour"], how="left")
+
+    #----- Remove unnecessary columns -----------------
+    # Remove unneeded columns
+    df = df.drop(columns=[
+        "device_id", 
+        "vis", 
+        "IR", 
+        "WIFI", 
+        "BLE", 
+        "rssi", 
+        "channel_rssi", 
+        "snr", 
+        "gateway", 
+        "channel_index", 
+        "spreading_factor", 
+        "bandwidth", 
+        "f_cnt"])
+    
     print("✓ Done")
     print("\n")
     
@@ -129,7 +212,7 @@ def pipeline(data_dir:str=None, output_fpath:str=None) -> bool:
     if data_dir is None:
         data_dir = os.path.join(working_dir, "data")
     if output_fpath is None:
-        output_fpath = os.path.join(working_dir, "data/output.parquet")
+        output_fpath = os.path.join(working_dir, "data/processed/data_building_n.parquet")
 
     df = load_data(f"{data_dir}/hka-aqm-n")
     df_preprocessed = preprocess_data(df)
