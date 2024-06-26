@@ -1,19 +1,20 @@
 import os
 import subprocess
+import sys
 
-# Set the working directory to the root of the Git repository
 current_dir = os.getcwd()
 git_root = subprocess.check_output(["git", "rev-parse", "--show-toplevel"], cwd=current_dir)
 git_root = git_root.decode("utf-8").strip()
 os.chdir(git_root)
 new_dir = os.getcwd()
+sys.path.append(git_root)
 
 import pandas as pd
 from typing import List, Dict, Tuple
-import dirs
+import utils.dirs
 import tqdm
 from colorama import Fore, Style
-import weather
+import utils.weather
 
 def load_data(data_dir:str) -> pd.DataFrame:
     """
@@ -64,7 +65,8 @@ def preprocess_data(df:pd.DataFrame) -> pd.DataFrame:
     # ----- Strip the whitespace --------------------
     df["device_id"] = df["device_id"].str.strip()
 
-    df['snr'] = df['snr'].str.strip().astype(float)
+    if "snr" in df.columns and df["snr"].dtype == "object":
+        df['snr'] = df['snr'].str.strip().astype(float)
 
     #----- Data Cleaning ----------------------------
     # Temperature
@@ -74,16 +76,16 @@ def preprocess_data(df:pd.DataFrame) -> pd.DataFrame:
     df = df[(df["hum"] > 0) & (df["hum"] < 100)]
 
     # CO2
-    df = df[(df["CO2"] > 0) & (df["CO2"] < 5000)]
+    df = df[(df["CO2"] > 0) & (df["CO2"] < 10000)]
 
     # VOC
-    df = df[(df["VOC"] > 0) & (df["VOC"] < 1000)]
+    df = df[(df["VOC"] > 0) & (df["VOC"] < 10000)]
 
     # Remove duplicates
     df = df.drop_duplicates()
 
-    # Remove rows with NaN values
-    df = df.dropna()
+    # Remove rows with NaN values in the used columns
+    df = df.dropna(subset=['tmp', 'hum', 'CO2', 'VOC'])
 
     print("✓ Done")
     print("\n")
@@ -154,7 +156,8 @@ def add_features(df: pd.DataFrame) -> pd.DataFrame:
     start_date = df["date_time"].min().strftime("%Y-%m-%d")
     end_date = df["date_time"].max().strftime("%Y-%m-%d")
 
-    df_weather = weather.get_weather_with_api(latitude=latitude, longitude=longitude, start_date=start_date, end_date=end_date)
+    print("Getting weather data...")
+    df_weather = utils.weather.get_weather_with_api(latitude=latitude, longitude=longitude, start_date=start_date, end_date=end_date)
     df = pd.merge(df, df_weather, on=["date", "hour"], how="left")
 
     #----- Remove unnecessary columns -----------------
@@ -207,8 +210,9 @@ def pipeline(data_dir:str=None, output_fpath:str=None) -> bool:
     Returns:
         bool: True if the pipeline process is successful, False otherwise.
     """
+    
 
-    working_dir = dirs.set_working_dir()
+    working_dir = utils.dirs.set_working_dir()
     if data_dir is None:
         data_dir = os.path.join(working_dir, "data")
     if output_fpath is None:
@@ -220,8 +224,26 @@ def pipeline(data_dir:str=None, output_fpath:str=None) -> bool:
     save_data(df_features, output_fpath)
     return True
 
+def pipeline_from_df(df):
+    """
+    A function that performs a data pipeline process.
+
+    Args:
+        df (pandas.DataFrame): The input DataFrame containing the data.
+
+    Returns:
+        pandas.DataFrame: The processed DataFrame with added features.
+
+    """
+    df_preprocessed = preprocess_data(df)
+    df_features = add_features(df_preprocessed)
+    df_features = df_features.sort_values(by="date_time")
+    return df_features
+
 # Hauptausführung
 if __name__ == "__main__":
+    # Set the working directory to the root of the Git repository
+
     print(pipeline())
 
     
