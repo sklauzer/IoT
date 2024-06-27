@@ -1,6 +1,9 @@
 import os
+import re
 import subprocess
 import sys
+
+import requests
 
 current_dir = os.getcwd()
 git_root = subprocess.check_output(["git", "rev-parse", "--show-toplevel"], cwd=current_dir)
@@ -240,10 +243,59 @@ def pipeline_from_df(df):
     df_features = df_features.sort_values(by="date_time")
     return df_features
 
-# Hauptausführung
-if __name__ == "__main__":
-    # Set the working directory to the root of the Git repository
+def get_room_info_hka_api() -> None:
+    """
+    A function that retrieves room information from the HKA API.
+    """
+    print(Style.BRIGHT + Fore.LIGHTMAGENTA_EX + "Get Room Information from HKA API")
+    print(Style.RESET_ALL)
 
+    login = os.environ["HKA_USERNAME"]
+    password = os.environ["HKA_PASSWORD"]
+
+    def get_bearer_token(username, password):
+        url = "https://raumzeit.hka-iwi.de/api/v1/authentication"
+        data = {
+            "login": username,
+            "password": password}
+        headers = {
+            "accept": "application/json",
+            "Content-Type": "application/json"
+        }
+        response = requests.post(url, json=data, headers=headers)
+        return response.json()
+
+    token = get_bearer_token(login, password)["accessToken"]
+
+    def get_all_rooms(token):
+        url = "https://raumzeit.hka-iwi.de/api/v1/rooms/all"
+        headers = {
+            "accept": "application/json",
+            "Authorization": f"Bearer {token}"
+        }
+        response = requests.get(url, headers=headers)
+        return response.json()
+
+    rooms = get_all_rooms(token)
+
+    df_rooms = pd.DataFrame(rooms)[["name", "longName", "departmentNames", "capacity", "roomType"]]
+    df_rooms["building"] = df_rooms["name"].str.extract(r"([A-Za-z]+)-")
+    df_rooms["room"] = df_rooms["name"].str.extract(r"(\d{3})$")
+    df_rooms['roomType'] = df_rooms['roomType'].fillna('Unknown')
+    def add_spaces_before_capitals(s):
+        return re.sub(r'(?<!^)(?=[A-Z])', ' ', s)
+
+    # Anwenden der Funktion auf die 'type' Spalte
+    df_rooms['roomType'] = df_rooms['roomType'].apply(add_spaces_before_capitals)
+    df_rooms.drop(columns=["name"], inplace=True)
+
+    df_rooms.to_parquet("data/processed/room_information.parquet", index=False)
+
+    print("✓ Done")
+    print("\n")
+
+if __name__ == "__main__":
     print(pipeline())
+    print(get_room_info_hka_api())
 
     
