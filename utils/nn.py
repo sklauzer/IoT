@@ -76,7 +76,7 @@ def encode(df: pd.DataFrame, encoder: OneHotEncoder) -> pd.DataFrame:
     encoded_column_names = encoder.get_feature_names_out(['season', 'floor'])
 
     # Insert the one-hot-encoded columns into the DataFrame
-    df_encoded = pd.DataFrame(encoded_columns, columns=encoded_column_names)
+    df_encoded = pd.DataFrame(encoded_columns, columns=encoded_column_names, index=df.index)
     df = pd.concat([df, df_encoded], axis=1).drop(['season', 'floor'], axis=1)
 
     return df
@@ -85,20 +85,20 @@ def resample(df: pd.DataFrame) -> pd.DataFrame:
     """ Resample the data to daily values. """
     #----- Resampling ----------------------------------------
     df.set_index('date_time', inplace=True)
-    df_daily = df.groupby('room').resample('D').mean().dropna()
-
-    df_daily.reset_index(inplace=True)
-    df_daily.set_index(['date_time'], inplace=True)
-
-    #----- Remove unnecessary columns -------------------------
-    df_daily = df_daily[[
-        'tmp', 'hum', 'CO2', 'VOC', 'outside_tmp', 'outside_hum', 'outside_rain',
+    
+    df = df[[
+        'room', 'tmp', 'hum', 'CO2', 'VOC', 'outside_tmp', 'outside_hum', 'outside_rain',
         'outside_snowfall', 'outside_wind_speed', 'outside_pressure',
         'date_circle_x', 'date_circle_y', 'day_of_week_circle_x',
         'day_of_week_circle_y', 'season_autumn', 'season_spring',
         'season_summer', 'season_winter', 'floor_0', 'floor_1', 'floor_2',
         'floor_3'
         ]]
+    
+    df_daily = df.groupby('room').resample('D').mean().dropna()
+    df_daily.reset_index(inplace=True)
+    df_daily.set_index(['date_time'], inplace=True)
+    df_daily.drop(['room'], axis=1, inplace=True)
     
     return df_daily
 
