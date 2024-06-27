@@ -1,3 +1,4 @@
+import time
 import openmeteo_requests
 import requests_cache
 import pandas as pd
@@ -10,6 +11,7 @@ def setup_openmeteo_client():
     return openmeteo_requests.Client(session=retry_session)
 
 def fetch_weather_data(client, latitude, longitude, start_date, end_date, timezone, variables):
+    print("Fetching weather data...")
     """Fetch weather data from Open-Meteo API."""
     url = "https://archive-api.open-meteo.com/v1/archive"
     params = {
@@ -23,6 +25,7 @@ def fetch_weather_data(client, latitude, longitude, start_date, end_date, timezo
     return client.weather_api(url, params=params)
 
 def process_response(response):
+    print("Processing weather data...")
     """Process the response and convert it to a DataFrame."""
 
     hourly = response.Hourly()
@@ -77,3 +80,15 @@ def get_weather_with_api(latitude:float, longitude:float, start_date:str, end_da
     hourly_dataframe = process_response(response)
   
     return hourly_dataframe
+
+if __name__ == "__main__":
+    latitude = 49.014920
+    longitude = 8.390050
+    start_date = "2021-01-01"
+    end_date = "2021-01-07"
+    # count the time it takes to fetch and process the weather data
+    start_time = time.time()
+    df = get_weather_with_api(latitude, longitude, start_date, end_date)
+    end_time = time.time()
+    print(f"Time taken: {end_time - start_time:.2f} seconds")
+    print(df)
