@@ -10,6 +10,31 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+st.markdown(
+    """
+    <style>
+    /* Hintergrundfarbe für die gesamte Seite */
+    .stApp {
+    background: rgb(251,253,255);
+background: linear-gradient(0deg, rgba(251,253,255,1) 43%, rgba(246,251,255,1) 100%);
+    }
+
+    /* Beispiel für benutzerdefinierte Abschnitte */
+    .st-emotion-cache-4uzi61 {
+        background-color: #ffffff;  /* Hintergrundfarbe für einen bestimmten Abschnitt */
+        border-color:#ffffff;
+        box-shadow: 0 0 5px rgba(0,0,0,0.1);  /* Schatten für einen bestimmten Abschnitt */
+    }
+
+    .st-emotion-cache-12fmjuu{
+        background-color: #f6fbff; /* Hintergrundfarbe für einen bestimmten Abschnitt */
+          }
+
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 data = pd.read_parquet("data/processed/data_building_n.parquet")
 
 data['date'] = pd.to_datetime(data['date'])
@@ -101,7 +126,12 @@ if len(selected_metrics) > 0:
 
             # Gesamtverlauf
             avg_metrics_total = data.groupby('date')[metric].mean().reset_index()
-            line_chart_total = alt.Chart(avg_metrics_total).mark_line().encode(
+            
+            # Resample on daily basis
+            avg_metrics_total = avg_metrics_total.set_index('date').resample('D').mean().reset_index()
+            data[metric] = data[metric].where(pd.notnull(data[metric]), None)
+
+            line_chart_total = alt.Chart(avg_metrics_total).mark_line(interpolate='linear').encode(
                 x='date:T',
                 y=alt.Y(f'mean({metric}):Q', title=f'{metric}'),
                 tooltip=['date:T', alt.Tooltip(f'mean({metric}):Q', title=f'{metric}')]
@@ -114,25 +144,6 @@ if len(selected_metrics) > 0:
             col1, col2 = st.columns(2)
             col1.altair_chart(line_chart_hourly)
             col2.altair_chart(line_chart_total)
-
-if len(selected_metrics) > 1:
-    show_scatterplots = st.checkbox('Show Scatterplots for correlation analysis')
-
-    if show_scatterplots:
-        with st.container(border=True):
-            st.title('Scatterplots of the selected metrics')
-            for metric1, metric2 in itertools.combinations(selected_metrics, 2):
-                st.subheader(f"{metric1.upper()} vs. {metric2.upper()}")
-                st.write(f"Correlation coefficient: {round(data[metric1].corr(data[metric2]), 3)}")
-                scatter_chart = alt.Chart(data).mark_circle().encode(
-                    x=metric1,
-                    y=metric2,
-                    tooltip=[metric1, metric2]
-                ).properties(
-                    width=400,
-                    height=300
-                )
-                st.altair_chart(scatter_chart)
 
 if len(selected_metrics) > 1:
     st.subheader('Compare Metrics')
@@ -193,3 +204,23 @@ if len(selected_metrics) > 1:
     else:
         chart_date = combine_metrics_by_date(data, metrica, metricb)
         st.altair_chart(chart_date, use_container_width=True)
+
+
+if len(selected_metrics) > 1:
+    show_scatterplots = st.checkbox('Show Scatterplots for correlation analysis')
+
+    if show_scatterplots:
+        with st.container(border=True):
+            st.title('Scatterplots of the selected metrics')
+            for metric1, metric2 in itertools.combinations(selected_metrics, 2):
+                st.subheader(f"{metric1.upper()} vs. {metric2.upper()}")
+                st.write(f"Correlation coefficient: {round(data[metric1].corr(data[metric2]), 3)}")
+                scatter_chart = alt.Chart(data).mark_circle().encode(
+                    x=metric1,
+                    y=metric2,
+                    tooltip=[metric1, metric2]
+                ).properties(
+                    width=400,
+                    height=300
+                )
+                st.altair_chart(scatter_chart)

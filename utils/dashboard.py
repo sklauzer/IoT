@@ -11,6 +11,7 @@ def get_main_fig(df_room, search_start, search_end, sensor_selected):
     df_data = df_data.set_index("date_time")
 
     df_data = df_data[[sensor_selected]]
+
     #----- Resample Data to show the correct time range ---------------------------------------------------------
     time_diff = search_end - search_start
 
@@ -42,6 +43,7 @@ def get_main_fig(df_room, search_start, search_end, sensor_selected):
     fig = go.Figure()
 
     #----- Add Boxes for different CO2 Levels ------------------------------------------------------------------------
+    # These thresholds are based on the threshold of th CO2 boxes of the HKA (https://www.h-ka.de/fileadmin/Hochschule_Karlsruhe_HKA/Bilder_VW-EBI/HKA_VW-EBI_Anleitung_CO2-Ampeln.pdf)
     if sensor_selected == "CO2":
         fig.add_shape(type="rect",
         x0=min(df_data.index), y0=0, x1=max(df_data.index), y1=850,
@@ -127,6 +129,8 @@ def get_main_fig(df_room, search_start, search_end, sensor_selected):
 
 
 def get_tacho(df, room, sensor, main_color="blue", light_color="lightgrey"):
+    """ Create a plotly figure with a gauge to show the quantile of a value of a sensor compared to the other rooms"""
+    
     room_avg = df.groupby('room')[sensor].mean().reset_index()
     room_avg = room_avg.rename(columns={sensor: f'avg_{sensor}'})
     avg_to_compare = room_avg[room_avg['room'] == room][f'avg_{sensor}'].values[0]
